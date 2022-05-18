@@ -1,8 +1,10 @@
 ## Changelog
 
+### Version 5.2.2
+- Add Google's maven repository to avoid build error [#2552](https://github.com/react-native-video/react-native-video/pull/2552)
+
 ### Version 5.2.1
 - Fix maxBitRate property being ignored on Android [#2665](https://github.com/react-native-video/react-native-video/issues/2665)
-
 
 ### Version 5.2.0
 
