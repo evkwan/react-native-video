@@ -1,5 +1,9 @@
 ## Changelog
 
+### Version 5.2.1
+- Fix maxBitRate property being ignored on Android [#2665](https://github.com/react-native-video/react-native-video/issues/2665)
+
+
 ### Version 5.2.0
 
 - Fix for tvOS native audio menu language selector
