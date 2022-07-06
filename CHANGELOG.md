@@ -1,6 +1,6 @@
 ## Changelog
 
-## Version 5.2.3-beta.1
+## Version 5.2.3
 - Disable pipController init if pictureInPicture is false [#2645](https://github.com/react-native-video/react-native-video/pull/2645)
 ### Version 5.2.2
 - Add Google's maven repository to avoid build error [#2552](https://github.com/react-native-video/react-native-video/pull/2552)
