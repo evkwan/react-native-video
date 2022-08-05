@@ -1014,6 +1014,15 @@ static int const RCTVideoUnset = -1;
 - (void)setMuted:(BOOL)muted
 {
   _muted = muted;
+
+  // ML handling - force AVAudioSessionCategoryPlayback when unmuted
+  // to ignore silent switch during playback. And force AVAudioSessionCategoryAmbient
+  // when muted to allow audio mixing from other apps.
+  if(muted) {
+	[self configureAudioSessionCategoryAmbient];
+  } else {
+	[self configureAudioSessionCategoryPlayback];
+  }
   [self applyModifiers];
 }
 
@@ -1094,6 +1103,24 @@ static int const RCTVideoUnset = -1;
     } else if (category == nil && options != nil) {
       [session setCategory:session.category withOptions:options error:nil];
     }
+}
+
+- (void)configureAudioSessionCategoryPlayback
+{
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+
+	[[AVAudioSession sharedInstance] setActive:NO error:nil];
+	[session setCategory:AVAudioSessionCategoryPlayback error:nil];
+	[[AVAudioSession sharedInstance] setActive:YES error:nil];
+}
+
+- (void)configureAudioSessionCategoryAmbient
+{
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+
+    [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+	[session setCategory:AVAudioSessionCategoryAmbient withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
+	[[AVAudioSession sharedInstance] setActive:YES error:nil];
 }
 
 - (void)setRepeat:(BOOL)repeat {
@@ -1516,6 +1543,7 @@ static int const RCTVideoUnset = -1;
     _fullscreenPlayerPresented = false;
     _presentingViewController = nil;
     _playerViewController = nil;
+	[self configureAudioSessionCategoryAmbient];
     [self applyModifiers];
     if(self.onVideoFullscreenPlayerDidDismiss) {
       self.onVideoFullscreenPlayerDidDismiss(@{@"target": self.reactTag});
