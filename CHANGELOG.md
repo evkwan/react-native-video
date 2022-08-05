@@ -1,7 +1,11 @@
 ## Changelog
 
+## Version 5.2.4
+- ML internal handling, force AVAudioSessionCategoryPlayback when video is unmuted and force AVAudioSessionCategoryAmbient when muted. Also force AVAudioSessionCategoryAmbient when dismissing from full screen video.
+
 ## Version 5.2.3
 - Disable pipController init if pictureInPicture is false [#2645](https://github.com/react-native-video/react-native-video/pull/2645)
+
 ### Version 5.2.2
 - Add Google's maven repository to avoid build error [#2552](https://github.com/react-native-video/react-native-video/pull/2552)
 
