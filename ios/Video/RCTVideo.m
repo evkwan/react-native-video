@@ -35,30 +35,32 @@ static int const RCTVideoUnset = -1;
   NSURL *_videoURL;
   BOOL _requestingCertificate;
   BOOL _requestingCertificateErrored;
-  
+
   /* DRM */
   NSDictionary *_drm;
   AVAssetResourceLoadingRequest *_loadingRequest;
-  
+
   /* Required to publish events */
   RCTEventDispatcher *_eventDispatcher;
   BOOL _playbackRateObserverRegistered;
   BOOL _isExternalPlaybackActiveObserverRegistered;
   BOOL _videoLoadStarted;
-  
+
   bool _pendingSeek;
   float _pendingSeekTime;
   float _lastSeekTime;
-  
+
   /* For sending videoProgress events */
   Float64 _progressUpdateInterval;
   BOOL _controls;
   id _timeObserver;
-  
+
   /* Keep track of any modifiers, need to be applied after each play */
   float _volume;
   float _rate;
   float _maxBitRate;
+
+  BOOL _firstMuteSet;
 
   BOOL _automaticallyWaitsToMinimizeStalling;
   BOOL _muted;
@@ -1013,16 +1015,24 @@ static int const RCTVideoUnset = -1;
 
 - (void)setMuted:(BOOL)muted
 {
-  _muted = muted;
 
   // ML handling - force AVAudioSessionCategoryPlayback when unmuted
   // to ignore silent switch during playback. And force AVAudioSessionCategoryAmbient
   // when muted to allow audio mixing from other apps.
-  if(muted) {
-	[self configureAudioSessionCategoryAmbient];
+  if(_firstMuteSet && _muted!=muted) {
+    if(muted) {
+		[[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+		[self setIgnoreSilentSwitch:@"obey"];
+    } else {
+		[[AVAudioSession sharedInstance] setActive:NO  error:nil];
+    	[self setIgnoreSilentSwitch:@"ignore"];
+    }
+	[[AVAudioSession sharedInstance] setActive:YES error:nil];
   } else {
-	[self configureAudioSessionCategoryPlayback];
+	_firstMuteSet = YES;
   }
+
+  _muted = muted;
   [self applyModifiers];
 }
 
@@ -1103,24 +1113,6 @@ static int const RCTVideoUnset = -1;
     } else if (category == nil && options != nil) {
       [session setCategory:session.category withOptions:options error:nil];
     }
-}
-
-- (void)configureAudioSessionCategoryPlayback
-{
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-
-	[[AVAudioSession sharedInstance] setActive:NO error:nil];
-	[session setCategory:AVAudioSessionCategoryPlayback error:nil];
-	[[AVAudioSession sharedInstance] setActive:YES error:nil];
-}
-
-- (void)configureAudioSessionCategoryAmbient
-{
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-
-    [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
-	[session setCategory:AVAudioSessionCategoryAmbient withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
-	[[AVAudioSession sharedInstance] setActive:YES error:nil];
 }
 
 - (void)setRepeat:(BOOL)repeat {
@@ -1543,7 +1535,7 @@ static int const RCTVideoUnset = -1;
     _fullscreenPlayerPresented = false;
     _presentingViewController = nil;
     _playerViewController = nil;
-	[self configureAudioSessionCategoryAmbient];
+
     [self applyModifiers];
     if(self.onVideoFullscreenPlayerDidDismiss) {
       self.onVideoFullscreenPlayerDidDismiss(@{@"target": self.reactTag});
