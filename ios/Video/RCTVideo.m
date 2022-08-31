@@ -60,7 +60,10 @@ static int const RCTVideoUnset = -1;
   float _rate;
   float _maxBitRate;
 
+  /* Use ML handling if ignoreSilentSwitch=inherit is used */
+  BOOL _MLHandling;
   BOOL _firstMuteSet;
+  BOOL _firstIgnoreSilentSwitchSet;
 
   BOOL _automaticallyWaitsToMinimizeStalling;
   BOOL _muted;
@@ -122,6 +125,9 @@ static int const RCTVideoUnset = -1;
     _pictureInPicture = false;
     _ignoreSilentSwitch = @"inherit"; // inherit, ignore, obey
     _mixWithOthers = @"inherit"; // inherit, mix, duck
+    _firstMuteSet = NO;
+	_firstIgnoreSilentSwitchSet = NO;
+    _MLHandling = YES; // follow ignoreSilentSwitch@inherit, once that changed then this will be NO.
 #if TARGET_OS_IOS
     _restoreUserInterfaceForPIPStopCompletionHandler = NULL;
 #endif
@@ -920,6 +926,11 @@ static int const RCTVideoUnset = -1;
 - (void)setIgnoreSilentSwitch:(NSString *)ignoreSilentSwitch
 {
   _ignoreSilentSwitch = ignoreSilentSwitch;
+  if(!_firstIgnoreSilentSwitchSet && !_firstMuteSet) {
+	  _firstIgnoreSilentSwitchSet = YES;
+	  _MLHandling = NO;
+  }
+
   [self configureAudio];
   [self applyModifiers];
 }
@@ -1015,25 +1026,38 @@ static int const RCTVideoUnset = -1;
 
 - (void)setMuted:(BOOL)muted
 {
-
   // ML handling - force AVAudioSessionCategoryPlayback when unmuted
   // to ignore silent switch during playback. And force AVAudioSessionCategoryAmbient
   // when muted to allow audio mixing from other apps.
-  if(_firstMuteSet && _muted!=muted) {
-    if(muted) {
-		[[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
-		[self setIgnoreSilentSwitch:@"obey"];
+  if(_MLHandling) {
+    if(_firstMuteSet) {
+      _muted = muted;
+      if(muted) {
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+          [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+          [self setIgnoreSilentSwitch:@"obey"];
+          [[AVAudioSession sharedInstance] setActive:YES error:nil];
+        });
+      } else {
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+          [[AVAudioSession sharedInstance] setActive:NO  error:nil];
+          [self setIgnoreSilentSwitch:@"ignore"];
+          [[AVAudioSession sharedInstance] setActive:YES error:nil];
+        });
+      }
     } else {
-		[[AVAudioSession sharedInstance] setActive:NO  error:nil];
-    	[self setIgnoreSilentSwitch:@"ignore"];
+      _muted = muted;
+      [self applyModifiers];
     }
-	[[AVAudioSession sharedInstance] setActive:YES error:nil];
   } else {
-	_firstMuteSet = YES;
+    // original handling
+    _muted = muted;
+    [self applyModifiers];
   }
 
-  _muted = muted;
-  [self applyModifiers];
+  if(!_firstMuteSet) {
+    _firstMuteSet = YES;
+  }
 }
 
 - (void)setVolume:(float)volume
