@@ -926,9 +926,9 @@ static int const RCTVideoUnset = -1;
 - (void)setIgnoreSilentSwitch:(NSString *)ignoreSilentSwitch
 {
   _ignoreSilentSwitch = ignoreSilentSwitch;
-  if(!_firstIgnoreSilentSwitchSet && !_firstMuteSet) {
-	  _firstIgnoreSilentSwitchSet = YES;
-	  _MLHandling = NO;
+  if(!_firstIgnoreSilentSwitchSet) {
+    _firstIgnoreSilentSwitchSet = YES;
+    _MLHandling = NO;
   }
 
   [self configureAudio];
@@ -1033,17 +1033,19 @@ static int const RCTVideoUnset = -1;
     if(_firstMuteSet) {
       _muted = muted;
       if(muted) {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-          [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
-          [self setIgnoreSilentSwitch:@"obey"];
-          [[AVAudioSession sharedInstance] setActive:YES error:nil];
-        });
+	    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		  [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+          [self configureAVAudioSessionCategoryAmbient];
+          [self applyPlayerModifiers];
+		  [[AVAudioSession sharedInstance] setActive:YES error:nil];
+		});
       } else {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-          [[AVAudioSession sharedInstance] setActive:NO  error:nil];
-          [self setIgnoreSilentSwitch:@"ignore"];
-          [[AVAudioSession sharedInstance] setActive:YES error:nil];
-        });
+	    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		  [[AVAudioSession sharedInstance] setActive:NO  error:nil];
+		  [self configureAVAudioSessionCategoryPlayback];
+          [self applyPlayerModifiers];
+		  [[AVAudioSession sharedInstance] setActive:YES error:nil];
+		});
       }
     } else {
       _muted = muted;
@@ -1083,6 +1085,20 @@ static int const RCTVideoUnset = -1;
 	_player.automaticallyWaitsToMinimizeStalling = waits;
 }
 
+- (void)applyPlayerModifiers
+{
+  if (_muted) {
+    if (!_controls) {
+      [_player setVolume:0];
+    }
+    [_player setMuted:YES];
+  } else {
+    [_player setVolume:_volume];
+    [_player setMuted:NO];
+  }
+
+  [self setPaused:_paused];
+}
 
 - (void)applyModifiers
 {
@@ -1137,6 +1153,18 @@ static int const RCTVideoUnset = -1;
     } else if (category == nil && options != nil) {
       [session setCategory:session.category withOptions:options error:nil];
     }
+}
+
+- (void)configureAVAudioSessionCategoryAmbient
+{
+  AVAudioSession *session = [AVAudioSession sharedInstance];
+  [session setCategory:AVAudioSessionCategoryAmbient error:nil];
+}
+
+- (void)configureAVAudioSessionCategoryPlayback
+{
+  AVAudioSession *session = [AVAudioSession sharedInstance];
+  [session setCategory:AVAudioSessionCategoryPlayback error:nil];
 }
 
 - (void)setRepeat:(BOOL)repeat {
